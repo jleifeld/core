@@ -337,6 +337,333 @@ describe('with object props', () => {
   })
 })
 
+describe('with object props in wrapped setup method', () => {
+  interface ExpectedProps {
+    a?: number | undefined
+    b: string
+    e?: Function
+    h: boolean
+    j: undefined | (() => string | undefined)
+    bb: string
+    bbb: string
+    bbbb: string | undefined
+    bbbbb: string | undefined
+    cc?: string[] | undefined
+    dd: { n: 1 }
+    ee?: () => string
+    ff?: (a: number, b: string) => { a: boolean }
+    ccc?: string[] | undefined
+    ddd: string[]
+    eee: () => { a: string }
+    fff: (a: number, b: string) => { a: boolean }
+    hhh: boolean
+    ggg: 'foo' | 'bar'
+    ffff: (a: number, b: string) => { a: boolean }
+    iii?: (() => string) | (() => number)
+    jjj: ((arg1: string) => string) | ((arg1: string, arg2: string) => string)
+    kkk?: any
+    validated?: string
+    date?: Date
+    l?: Date
+    ll?: Date | number
+    lll?: string | number
+  }
+
+  type GT = string & { __brand: unknown }
+
+  const props = {
+    a: Number,
+    // required should make property non-void
+    b: {
+      type: String,
+      required: true as true,
+    },
+    e: Function,
+    h: Boolean,
+    j: Function as PropType<undefined | (() => string | undefined)>,
+    // default value should infer type and make it non-void
+    bb: {
+      default: 'hello',
+    },
+    bbb: {
+      // Note: default function value requires arrow syntax + explicit
+      // annotation
+      default: (props: any) => (props.bb as string) || 'foo',
+    },
+    bbbb: {
+      type: String,
+      default: undefined,
+    },
+    bbbbb: {
+      type: String,
+      default: () => undefined,
+    },
+    // explicit type casting
+    cc: Array as PropType<string[]>,
+    // required + type casting
+    dd: {
+      type: Object as PropType<{ n: 1 }>,
+      required: true as true,
+    },
+    // return type
+    ee: Function as PropType<() => string>,
+    // arguments + object return
+    ff: Function as PropType<(a: number, b: string) => { a: boolean }>,
+    // explicit type casting with constructor
+    ccc: Array as () => string[],
+    // required + constructor type casting
+    ddd: {
+      type: Array as () => string[],
+      required: true as true,
+    },
+    // required + object return
+    eee: {
+      type: Function as PropType<() => { a: string }>,
+      required: true as true,
+    },
+    // required + arguments + object return
+    fff: {
+      type: Function as PropType<(a: number, b: string) => { a: boolean }>,
+      required: true as true,
+    },
+    hhh: {
+      type: Boolean,
+      required: true as true,
+    },
+    // default + type casting
+    ggg: {
+      type: String as PropType<'foo' | 'bar'>,
+      default: 'foo',
+    },
+    // default + function
+    ffff: {
+      type: Function as PropType<(a: number, b: string) => { a: boolean }>,
+      default: (a: number, b: string) => ({ a: a > +b }),
+    },
+    // union + function with different return types
+    iii: Function as PropType<(() => string) | (() => number)>,
+    // union + function with different args & same return type
+    jjj: {
+      type: Function as PropType<
+        ((arg1: string) => string) | ((arg1: string, arg2: string) => string)
+      >,
+      required: true as true,
+    },
+    kkk: null,
+    validated: {
+      type: String,
+      // validator requires explicit annotation
+      validator: (val: unknown) => val !== '',
+    },
+    date: Date,
+    l: [Date],
+    ll: [Date, Number],
+    lll: [String, Number],
+  }
+
+  // General wrap method for setup which should infer the props types correctly
+  function wrap<PROPS, SETUP_RESULT>(
+    setup: (props: PROPS) => SETUP_RESULT,
+  ): (props: PROPS) => SETUP_RESULT {
+    return setup
+  }
+
+  const MyComponent = defineComponent({
+    props,
+    setup: wrap(props => {
+      // type assertion. See https://github.com/SamVerschueren/tsd
+      expectType<ExpectedProps['a']>(props.a)
+      expectType<ExpectedProps['b']>(props.b)
+      expectType<ExpectedProps['e']>(props.e)
+      expectType<ExpectedProps['h']>(props.h)
+      expectType<ExpectedProps['j']>(props.j)
+      expectType<ExpectedProps['bb']>(props.bb)
+      expectType<ExpectedProps['bbb']>(props.bbb)
+      expectType<ExpectedProps['bbbb']>(props.bbbb)
+      expectType<ExpectedProps['bbbbb']>(props.bbbbb)
+      expectType<ExpectedProps['cc']>(props.cc)
+      expectType<ExpectedProps['dd']>(props.dd)
+      expectType<ExpectedProps['ee']>(props.ee)
+      expectType<ExpectedProps['ff']>(props.ff)
+      expectType<ExpectedProps['ccc']>(props.ccc)
+      expectType<ExpectedProps['ddd']>(props.ddd)
+      expectType<ExpectedProps['eee']>(props.eee)
+      expectType<ExpectedProps['fff']>(props.fff)
+      expectType<ExpectedProps['hhh']>(props.hhh)
+      expectType<ExpectedProps['ggg']>(props.ggg)
+      expectType<ExpectedProps['ffff']>(props.ffff)
+      if (typeof props.iii !== 'function') {
+        expectType<undefined>(props.iii)
+      }
+      expectType<ExpectedProps['iii']>(props.iii)
+      expectType<IsUnion<typeof props.jjj>>(true)
+      expectType<ExpectedProps['jjj']>(props.jjj)
+      expectType<ExpectedProps['kkk']>(props.kkk)
+      expectType<ExpectedProps['validated']>(props.validated)
+      expectType<ExpectedProps['date']>(props.date)
+      expectType<ExpectedProps['l']>(props.l)
+      expectType<ExpectedProps['ll']>(props.ll)
+      expectType<ExpectedProps['lll']>(props.lll)
+
+      // @ts-expect-error props should be readonly
+      props.a = 1
+
+      // setup context
+      return {
+        c: ref(1),
+        d: {
+          e: ref('hi'),
+        },
+        f: reactive({
+          g: ref('hello' as GT),
+        }),
+      }
+    }),
+    provide() {
+      return {}
+    },
+    render() {
+      const props = this.$props
+      expectType<ExpectedProps['a']>(props.a)
+      expectType<ExpectedProps['b']>(props.b)
+      expectType<ExpectedProps['e']>(props.e)
+      expectType<ExpectedProps['h']>(props.h)
+      expectType<ExpectedProps['bb']>(props.bb)
+      expectType<ExpectedProps['cc']>(props.cc)
+      expectType<ExpectedProps['dd']>(props.dd)
+      expectType<ExpectedProps['ee']>(props.ee)
+      expectType<ExpectedProps['ff']>(props.ff)
+      expectType<ExpectedProps['ccc']>(props.ccc)
+      expectType<ExpectedProps['ddd']>(props.ddd)
+      expectType<ExpectedProps['eee']>(props.eee)
+      expectType<ExpectedProps['fff']>(props.fff)
+      expectType<ExpectedProps['hhh']>(props.hhh)
+      expectType<ExpectedProps['ggg']>(props.ggg)
+      if (typeof props.iii !== 'function') {
+        expectType<undefined>(props.iii)
+      }
+      expectType<ExpectedProps['iii']>(props.iii)
+      expectType<IsUnion<typeof props.jjj>>(true)
+      expectType<ExpectedProps['jjj']>(props.jjj)
+      expectType<ExpectedProps['kkk']>(props.kkk)
+
+      // @ts-expect-error props should be readonly
+      props.a = 1
+
+      // should also expose declared props on `this`
+      expectType<ExpectedProps['a']>(this.a)
+      expectType<ExpectedProps['b']>(this.b)
+      expectType<ExpectedProps['e']>(this.e)
+      expectType<ExpectedProps['h']>(this.h)
+      expectType<ExpectedProps['bb']>(this.bb)
+      expectType<ExpectedProps['cc']>(this.cc)
+      expectType<ExpectedProps['dd']>(this.dd)
+      expectType<ExpectedProps['ee']>(this.ee)
+      expectType<ExpectedProps['ff']>(this.ff)
+      expectType<ExpectedProps['ccc']>(this.ccc)
+      expectType<ExpectedProps['ddd']>(this.ddd)
+      expectType<ExpectedProps['eee']>(this.eee)
+      expectType<ExpectedProps['fff']>(this.fff)
+      expectType<ExpectedProps['hhh']>(this.hhh)
+      expectType<ExpectedProps['ggg']>(this.ggg)
+      if (typeof this.iii !== 'function') {
+        expectType<undefined>(this.iii)
+      }
+      expectType<ExpectedProps['iii']>(this.iii)
+      const { jjj } = this
+      expectType<IsUnion<typeof jjj>>(true)
+      expectType<ExpectedProps['jjj']>(this.jjj)
+      expectType<ExpectedProps['kkk']>(this.kkk)
+
+      // @ts-expect-error props on `this` should be readonly
+      this.a = 1
+
+      // assert setup context unwrapping
+      expectType<number>(this.c)
+      expectType<string>(this.d.e.value)
+      expectType<GT>(this.f.g)
+
+      // setup context properties should be mutable
+      this.c = 2
+
+      return null
+    },
+  })
+
+  expectType<Component>(MyComponent)
+
+  // Test TSX
+  expectType<JSX.Element>(
+    <MyComponent
+      a={1}
+      b="b"
+      bb="bb"
+      e={() => {}}
+      cc={['cc']}
+      dd={{ n: 1 }}
+      ee={() => 'ee'}
+      ccc={['ccc']}
+      ddd={['ddd']}
+      eee={() => ({ a: 'eee' })}
+      fff={(a, b) => ({ a: a > +b })}
+      hhh={false}
+      ggg="foo"
+      jjj={() => ''}
+      // should allow class/style as attrs
+      class="bar"
+      style={{ color: 'red' }}
+      // should allow key
+      key={'foo'}
+      // should allow ref
+      ref={'foo'}
+      ref_for={true}
+    />,
+  )
+
+  expectType<Component>(
+    <MyComponent
+      b="b"
+      dd={{ n: 1 }}
+      ddd={['ddd']}
+      eee={() => ({ a: 'eee' })}
+      fff={(a, b) => ({ a: a > +b })}
+      hhh={false}
+      jjj={() => ''}
+    />,
+  )
+
+  // @ts-expect-error missing required props
+  let c = <MyComponent />
+  // @ts-expect-error wrong prop types
+  c = <MyComponent a={'wrong type'} b="foo" dd={{ n: 1 }} ddd={['foo']} />
+  // @ts-expect-error wrong prop types
+  c = <MyComponent ggg="baz" />
+
+  // @ts-expect-error
+  ;<MyComponent b="foo" dd={{ n: 'string' }} ddd={['foo']} />
+
+  // `this` should be void inside of prop validators and prop default factories
+  defineComponent({
+    props: {
+      myProp: {
+        type: Number,
+        validator(val: unknown): boolean {
+          // @ts-expect-error
+          return val !== this.otherProp
+        },
+        default(): number {
+          // @ts-expect-error
+          return this.otherProp + 1
+        },
+      },
+      otherProp: {
+        type: Number,
+        required: true,
+      },
+    },
+  })
+})
+
 describe('type inference w/ optional props declaration', () => {
   const MyComponent = defineComponent<{ a: string[]; msg: string }>({
     setup(props) {
